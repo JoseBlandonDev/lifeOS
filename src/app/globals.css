@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --glass-bg: rgba(12, 12, 16, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: radial-gradient(
+      120% 120% at 20% 10%,
+      rgba(99, 102, 241, 0.12),
+      transparent 45%
+    ),
+    radial-gradient(
+      80% 80% at 90% 20%,
+      rgba(139, 92, 246, 0.1),
+      transparent 40%
+    ),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.markdown-body :where(h1, h2, h3) {
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+  color: rgb(244 244 245);
+}
+
+.markdown-body h1 {
+  font-size: 1.1rem;
+}
+.markdown-body h2 {
+  font-size: 1rem;
+}
+.markdown-body h3 {
+  font-size: 0.95rem;
+}
+
+.markdown-body :where(p) {
+  margin: 0.35rem 0;
+}
+
+.markdown-body :where(ul, ol) {
+  margin: 0.35rem 0 0.35rem 1rem;
+  padding-left: 0.25rem;
+}
+
+.markdown-body :where(code) {
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+
+.markdown-body :where(a) {
+  color: rgb(167 139 250);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-body :where(blockquote) {
+  border-left: 3px solid rgba(255, 255, 255, 0.15);
+  margin: 0.5rem 0;
+  padding-left: 0.75rem;
+  color: rgb(161 161 170);
+}
