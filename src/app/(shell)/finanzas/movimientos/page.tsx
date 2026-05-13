@@ -3,10 +3,15 @@ import { Receipt } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { AddTransactionForm } from "@/components/finance/add-transaction-form";
 import { TransactionsList } from "@/components/finance/transactions-list";
+import { WhatsappLinkForm } from "@/components/finance/whatsapp-link-form";
 import { getFinanceSnapshot } from "@/lib/data/finance";
+import { getWhatsappFinanceLink } from "@/lib/data/whatsapp";
 
 export default async function MovimientosPage() {
-  const snap = await getFinanceSnapshot();
+  const [snap, whatsappLink] = await Promise.all([
+    getFinanceSnapshot(),
+    getWhatsappFinanceLink(),
+  ]);
   if (!snap) return <div className="text-sm text-zinc-400">No se pudo cargar.</div>;
 
   const accounts = snap.accounts.filter((a) => !a.archived);
@@ -38,6 +43,11 @@ export default async function MovimientosPage() {
             .map((b) => ({ id: b.id, label: b.label }))}
         />
       </header>
+
+      <WhatsappLinkForm
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, type: a.type }))}
+        initialLink={whatsappLink}
+      />
 
       {accounts.length === 0 ? (
         <GlassCard>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeWhatsappPhone } from "@/lib/whatsapp/cloud-api";
 
 const FINANZAS_PATHS = [
   "/finanzas",
@@ -14,9 +15,14 @@ const FINANZAS_PATHS = [
   "/finanzas/inversiones",
   "/dashboard",
 ];
+const WHATSAPP_PATHS = ["/finanzas/movimientos", "/dashboard"];
 
 function revalAll() {
   for (const p of FINANZAS_PATHS) revalidatePath(p);
+}
+
+function revalWhatsapp() {
+  for (const p of WHATSAPP_PATHS) revalidatePath(p);
 }
 
 async function authed() {
@@ -265,6 +271,51 @@ export async function setAccountTotal(formData: FormData) {
   if (error) return { ok: false as const, message: error.message };
 
   revalAll();
+  return { ok: true as const };
+}
+
+export async function upsertWhatsappFinanceLink(formData: FormData) {
+  const phoneRaw = String(formData.get("phone_number") ?? "");
+  const phone_number = normalizeWhatsappPhone(phoneRaw);
+  const default_account_id = String(formData.get("default_account_id") ?? "");
+  const active = String(formData.get("active") ?? "on") === "on";
+
+  if (!phone_number || phone_number.length < 8) {
+    return {
+      ok: false as const,
+      message: "Escribe el número en formato internacional, por ejemplo 573001112233.",
+    };
+  }
+  if (!default_account_id) {
+    return { ok: false as const, message: "Selecciona una cuenta por defecto." };
+  }
+
+  const { supabase, user } = await authed();
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("id", default_account_id)
+    .eq("user_id", user.id)
+    .eq("archived", false)
+    .single();
+
+  if (!account) {
+    return { ok: false as const, message: "Cuenta no encontrada." };
+  }
+
+  const { error } = await supabase.from("whatsapp_user_links").upsert(
+    {
+      user_id: user.id,
+      phone_number,
+      default_account_id,
+      active,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) return { ok: false as const, message: error.message };
+  revalWhatsapp();
   return { ok: true as const };
 }
 
