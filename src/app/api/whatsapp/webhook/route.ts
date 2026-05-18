@@ -52,6 +52,11 @@ function confirmationText(parsed: ParsedFinanceMessage) {
     .join("\n");
 }
 
+function maskPhone(phone: string) {
+  if (phone.length <= 6) return "***";
+  return `${phone.slice(0, 4)}***${phone.slice(-2)}`;
+}
+
 async function handleConfirmation({
   supabase,
   from,
@@ -136,6 +141,11 @@ async function handleConfirmation({
 async function handleMessage(message: WhatsappMessage) {
   const supabase = createAdminClient();
   const from = normalizeWhatsappPhone(message.from);
+  console.info("[whatsapp] inbound message", {
+    id: message.id,
+    type: message.type,
+    from: maskPhone(from),
+  });
   const rawText =
     message.text?.body ||
     message.image?.caption ||
@@ -157,6 +167,9 @@ async function handleMessage(message: WhatsappMessage) {
     .single();
 
   if (!link) {
+    console.info("[whatsapp] no active link for sender", {
+      from: maskPhone(from),
+    });
     await sendWhatsappText(
       from,
       "Este número no está vinculado. Entra a Finanzas > Movimientos y configura WhatsApp.",
@@ -180,6 +193,15 @@ async function handleMessage(message: WhatsappMessage) {
       ? await parseFinanceMessageWithGemini({ text: rawText, media })
       : initialParsed;
 
+  console.info("[whatsapp] parsed message", {
+    from: maskPhone(from),
+    intent: parsed.intent,
+    type: parsed.type,
+    hasAmount: parsed.amount != null,
+    confidence: parsed.confidence,
+    needsConfirmation: parsed.needs_confirmation,
+  });
+
   const { data: event } = await supabase
     .from("whatsapp_finance_events")
     .insert({
@@ -195,6 +217,10 @@ async function handleMessage(message: WhatsappMessage) {
     .single();
 
   if (!canSaveAfterConfirmation(parsed)) {
+    console.info("[whatsapp] ignored message", {
+      eventId: event?.id,
+      reason: parsed.reason,
+    });
     await supabase
       .from("whatsapp_finance_events")
       .update({
@@ -220,6 +246,10 @@ async function handleMessage(message: WhatsappMessage) {
     });
 
     if (saved.ok) {
+      console.info("[whatsapp] saved automatically", {
+        eventId: event?.id,
+        transactionId: saved.transactionId,
+      });
       await supabase
         .from("whatsapp_finance_events")
         .update({
@@ -241,6 +271,7 @@ async function handleMessage(message: WhatsappMessage) {
     })
     .eq("id", event?.id);
   await sendWhatsappText(from, confirmationText(parsed));
+  console.info("[whatsapp] pending confirmation", { eventId: event?.id });
 }
 
 export async function GET(request: NextRequest) {
@@ -263,6 +294,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   if (!verifyWhatsappSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+    console.warn("[whatsapp] invalid signature");
     return new Response("Invalid signature", { status: 401 });
   }
 
@@ -272,6 +304,7 @@ export async function POST(request: NextRequest) {
       entry.changes?.flatMap((change) => change.value?.messages ?? []) ?? [],
     ) ?? [];
 
+  console.info("[whatsapp] webhook received", { messages: messages.length });
   await Promise.all(messages.map((message) => handleMessage(message)));
 
   return Response.json({ ok: true });
